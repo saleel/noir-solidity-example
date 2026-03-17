@@ -1,18 +1,23 @@
-import { UltraHonkBackend } from "@aztec/bb.js";
+import { Barretenberg, UltraHonkBackend } from "@aztec/bb.js";
 import fs from "fs";
 import circuit from "../circuits/target/noir_solidity.json";
 // @ts-ignore
 import { Noir } from "@noir-lang/noir_js";
+import { BackendType, VerifierTarget } from "@aztec/bb.js";
 
 
 (async () => {
   try {
     const noir = new Noir(circuit as any);
-    const honk = new UltraHonkBackend(circuit.bytecode, { threads: 1 });
+
+    const bb = await Barretenberg.new({ threads: 8, backend: BackendType.Wasm });
+    const honk = new UltraHonkBackend(circuit.bytecode, bb);
 
     const inputs = { x: 3, y: 3 }
     const { witness } = await noir.execute(inputs);
-    const { proof, publicInputs } = await honk.generateProof(witness, { keccak: true });
+    const { proof, publicInputs } = await honk.generateProof(witness, { verifierTarget: 'evm' });
+
+    await honk.verifyProof({ proof, publicInputs }, { verifierTarget: 'evm' });
 
     // save proof to file
     fs.writeFileSync("../circuits/target/proof", proof);
